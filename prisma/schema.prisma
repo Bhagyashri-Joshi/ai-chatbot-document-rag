@@ -1,0 +1,122 @@
+// Prisma schema for the AI Chatbot with Document RAG project.
+//
+// NOTE ON VECTOR TYPE:
+// Prisma does not natively support pgvector's `vector` type. We declare the
+// `embedding` column with `Unsupported("vector(768)")`, which means Prisma
+// will create/track the column but you cannot read/write it through the
+// normal Prisma Client API. All embedding reads/writes and similarity
+// search go through raw SQL ($queryRawUnsafe / $executeRawUnsafe) in
+// lib/vectorSearch.js and lib/embedder.js. This is expected and documented
+// in the TRD (see section 51 - Database Query Strategy).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+
+  documents Document[]
+  chunks    Chunk[]
+  accounts  Account[]
+  sessions  Session[]
+}
+
+enum DocumentStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id         String         @id @default(cuid())
+  userId     String
+  name       String
+  fileName   String
+  fileHash   String
+  pageCount  Int            @default(0)
+  status     DocumentStatus @default(UPLOADING)
+  errorMessage String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks Chunk[]
+
+  @@index([userId])
+  @@index([userId, fileHash])
+}
+
+model Chunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  userId      String
+  content     String
+  chunkIndex  Int
+  pageNumber  Int
+  startChar   Int?
+  endChar     Int?
+  createdAt   DateTime @default(now())
+
+  // pgvector column - see NOTE above. Not accessible via normal Prisma
+  // Client queries; managed through raw SQL.
+  embedding Unsupported("vector(768)")?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentId])
+}
+
+// ─────────────────────────────────────────────
+// NextAuth models (Prisma adapter)
+// ─────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
