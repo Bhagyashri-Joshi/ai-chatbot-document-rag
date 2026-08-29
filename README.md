@@ -1,4 +1,4 @@
-# AI Chatbot with Document RAG
+# AI Chatbot with Document RAG: 
 
 A Next.js (Pages Router) application that lets a signed-in user upload PDF
 documents and ask questions about them, answered by Gemini using a real
@@ -18,7 +18,7 @@ PDF → parse → chunk → embed → store vectors → retrieve relevant vector
 - **Backend:** Next.js API routes
 - **Auth:** NextAuth (Google OAuth provider)
 - **Database:** Supabase PostgreSQL + pgvector
-- **Embeddings:** Gemini `text-embedding-3-small` (1536 dimensions)
+- **Embeddings:** Gemini Embedding 2 (768 dimensions)
 - **Generation:**  Gemini, streamed via Server-Sent Events
 
 ## Project Structure
